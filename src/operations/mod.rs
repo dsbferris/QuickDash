@@ -155,7 +155,7 @@ pub fn read_hashes(file: &Path) -> Result<BTreeMap<String, String>, Error> {
 				}
 				try_contains(&line, &mut hashes)?;
 			}
-			Err(err) => return Err(Error::HashesFileParsingFailure),
+			Err(err) => return Err(Error::HashesFileParsingFailure(err.to_string())),
 		}
 	}
 
@@ -201,5 +201,5 @@ fn try_contains(line: &str, hashes: &mut BTreeMap<String, String>) -> Result<(),
 		hashes.insert(file, hash);
 		return Ok(());
 	}
-	Err(Error::HashesFileParsingFailure)
+	Err(Error::HashesFileParsingFailure(line.to_owned()))
 }

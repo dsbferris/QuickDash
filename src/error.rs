@@ -14,7 +14,7 @@
  */
 
 /// Enum representing each way the appication can fail.
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum Error {
 	/// No errors occured, everything executed correctly.
 	NoError,
@@ -23,7 +23,7 @@ pub enum Error {
 	/// Selected and saved hash lengths differ.
 	HashLengthDiffers,
 	/// Parsing the hashes file failed.
-	HashesFileParsingFailure,
+	HashesFileParsingFailure(String),
 	/// The specified amount of files do not match.
 	NFilesDiffer(i32),
 }
@@ -35,7 +35,7 @@ impl Error {
 			Error::NoError => 0,
 			Error::OptionParsingError => 1,
 			Error::HashLengthDiffers => 2,
-			Error::HashesFileParsingFailure => 3,
+			Error::HashesFileParsingFailure(_) => 3,
 			Error::NFilesDiffer(i) => i + 3,
 		}
 	}
@@ -47,7 +47,7 @@ impl From<i32> for Error {
 			0 => Error::NoError,
 			1 => Error::OptionParsingError,
 			2 => Error::HashLengthDiffers,
-			3 => Error::HashesFileParsingFailure,
+			3 => Error::HashesFileParsingFailure(String::new()),
 			i => Error::NFilesDiffer(i - 3),
 		}
 	}
