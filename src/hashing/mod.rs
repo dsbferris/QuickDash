@@ -95,7 +95,7 @@ pub fn hash_reader<R: Read>(algo: Algorithm, data: &mut R) -> String {
 		Algorithm::XXH3 => xxh3::hash(data),
 		Algorithm::BLAKE2B => blake2b::hash(data),
 		Algorithm::BLAKE2S => blake2s::hash(data),
-		Algorithm::BLAKE3 => blake3::hash(data),
+	 	Algorithm::UNSPECIFIED | Algorithm::BLAKE3 => blake3::hash(data),
 		Algorithm::WhirlPool => whirlpool::hash(data),
 	}
 }

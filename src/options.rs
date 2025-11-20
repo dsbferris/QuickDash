@@ -28,7 +28,7 @@ use crate::Algorithm;
 )]
 pub struct Commands {
 	/// Hashing algorithm to use.
-	#[arg(value_enum, short, long, default_value = "blake3")]
+	#[arg(value_enum, short, long)]
 	pub algorithm: Algorithm,
 	/// Max recursion depth. Infinite if None. Default: `0`
 	#[arg(short, long)]

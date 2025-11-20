@@ -35,6 +35,7 @@ use clap::ValueEnum;
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
 pub enum Algorithm {
+	UNSPECIFIED,
 	SHA1,
 	SHA2224,
 	SHA2256,
@@ -62,7 +63,7 @@ impl Algorithm {
 			Algorithm::CRC32 | Algorithm::XXH32 => 8,
 			Algorithm::XXH3 | Algorithm::XXH64 => 16,
 			Algorithm::MD5 => 32,
-			Algorithm::SHA3256 | Algorithm::SHA2256 | Algorithm::BLAKE2S | Algorithm::BLAKE3 => 64,
+			Algorithm::SHA3256 | Algorithm::SHA2256 | Algorithm::BLAKE2S | Algorithm::BLAKE3 | Algorithm::UNSPECIFIED => 64,
 			Algorithm::SHA1 => 40,
 			Algorithm::SHA2224 | Algorithm::SHA3224 => 56,
 			Algorithm::SHA2384 | Algorithm::SHA3384 => 96,
@@ -70,6 +71,65 @@ impl Algorithm {
 				128
 			}
 		}
+	}
+
+	pub fn autodetect_from_hash(hash: &str) -> Self {
+		// Normalize: trim whitespace and any `0x` prefix, and remove inner
+		// whitespace (hashes may be written with spaces/tabs between parts).
+		let mut s: String = hash.trim().to_string();
+		if s.starts_with("0x") || s.starts_with("0X") {
+			s = s[2..].to_string();
+		}
+		s = s.split_whitespace().collect();
+
+		// If the placeholder dashed hash (`-----...`) was used, detect
+		// purely from length. Prefer fast, integrity-focused algorithms
+		// where multiple algorithms share the same output size.
+		if !s.is_empty() && s.chars().all(|c| c == '-') {
+			return match s.len() {
+				8 => Algorithm::CRC32,
+				16 => Algorithm::XXH64,
+				32 => Algorithm::MD5,
+				40 => Algorithm::SHA1,
+				56 => Algorithm::SHA2224,
+				// 64 hex chars can be SHA-256, SHA3-256, BLAKE2s or BLAKE3.
+				// For an integrity-checking tool we prefer the fast
+				// non-cryptographic/modern option `BLAKE3` by default.
+				64 => Algorithm::BLAKE3,
+				96 => Algorithm::SHA2384,
+				// 128 hex chars could be SHA-512, SHA3-512, BLAKE2b or
+				// Whirlpool. Prefer `BLAKE2B` for integrity/speed.
+				128 => Algorithm::BLAKE2B,
+				_ => Algorithm::BLAKE3,
+			};
+		}
+
+		// If the remaining characters are all hexadecimal, pick by length.
+		// When multiple algorithms share the same length prefer fast
+		// integrity-focused choices (e.g., `BLAKE3` for 64, `BLAKE2B` for
+		// 128), since this tool is used for file integrity checks.
+		if !s.is_empty() && s.chars().all(|c| c.is_ascii_hexdigit()) {
+			return match s.len() {
+				8 => Algorithm::CRC32,
+				16 => Algorithm::XXH64,
+				32 => Algorithm::MD5,
+				40 => Algorithm::SHA1,
+				56 => Algorithm::SHA2224,
+				64 => Algorithm::BLAKE3,
+				96 => Algorithm::SHA2384,
+				128 => Algorithm::BLAKE2B,
+				// Best-effort guesses for uncommon lengths: choose the
+				// nearest common algorithm size and prefer fast options.
+				len if len < 12 => Algorithm::CRC32,
+				len if len < 36 => Algorithm::MD5,
+				len if len < 52 => Algorithm::BLAKE3,
+				len if len < 110 => Algorithm::SHA2384,
+				_ => Algorithm::BLAKE2B,
+			};
+		}
+
+		// Fallback: prefer a fast integrity algorithm (BLAKE3).
+		Algorithm::BLAKE3
 	}
 }
 
