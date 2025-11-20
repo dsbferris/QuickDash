@@ -23,22 +23,6 @@ use std::{
 use clap::Parser;
 use quickdash::{Commands, Mode};
 
-const BANNER: [&str; 13] = [
-	"",
-	// PS I know it's kinda awful and all. But still cool.
-	"  █████   █    ██  ██▓ ▄████▄   ██ ▄█▀▓█████▄  ▄▄▄        ██████  ██░ ██ ",
-	"▒██▓  ██▒ ██  ▓██▒▓██▒▒██▀ ▀█   ██▄█▒ ▒██▀ ██▌▒████▄    ▒██    ▒ ▓██░ ██▒",
-	"▒██▒  ██░▓██  ▒██░▒██▒▒▓█    ▄ ▓███▄░ ░██   █▌▒██  ▀█▄  ░ ▓██▄   ▒██▀▀██░",
-	"░██  █▀ ░▓▓█  ░██░░██░▒▓▓▄ ▄██▒▓██ █▄ ░▓█▄   ▌░██▄▄▄▄██   ▒   ██▒░▓█ ░██ ",
-	"░▒███▒█▄ ▒▒█████▓ ░██░▒ ▓███▀ ░▒██▒ █▄░▒████▓  ▓█   ▓██▒▒██████▒▒░▓█▒░██▓",
-	"░░ ▒▒░ ▒ ░▒▓▒ ▒ ▒ ░▓  ░ ░▒ ▒  ░▒ ▒▒ ▓▒ ▒▒▓  ▒  ▒▒   ▓▒█░▒ ▒▓▒ ▒ ░ ▒ ░░▒░▒",
-	" ░ ▒░  ░ ░░▒░ ░ ░  ▒ ░  ░  ▒   ░ ░▒ ▒░ ░ ▒  ▒   ▒   ▒▒ ░░ ░▒  ░ ░ ▒ ░▒░ ░",
-	"   ░   ░  ░░░ ░ ░  ▒ ░░        ░ ░░ ░  ░ ░  ░   ░   ▒   ░  ░  ░   ░  ░░ ░",
-	"     ░       ░      ░  ░ ░      ░  ░      ░          ░  ░      ░   ░  ░  ░",
-	"",
-	"Made with <3  by Cerda. Repo: https://github.com/iamtakingithard/QuickDash",
-	"",
-];
 
 fn main() {
 	let result = actual_main();
@@ -47,8 +31,6 @@ fn main() {
 
 fn actual_main() -> i32 {
 	let opts = Commands::parse();
-
-	BANNER.iter().for_each(|line| println!("{}", line));
 
 	match opts.command {
 		Mode::Create { path, file, force } => {
