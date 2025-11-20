@@ -24,6 +24,7 @@
 
 mod compare;
 mod write;
+mod optimize_file_order;
 
 use std::{
 	collections::BTreeMap,
@@ -100,7 +101,7 @@ pub fn create_hashes(
 		.filter(|e| e.file_type().is_file())
 		.collect();
 
-	optimize_file_order(&mut files);
+ 	optimize_file_order::optimize_file_order(&mut files);
 
 	pb.reset();
 	pb.set_length(files.len() as u64);
@@ -119,18 +120,6 @@ pub fn create_hashes(
 	hashes
 }
 
-#[cfg(target_os = "linux")]
-fn optimize_file_order(dirs: &mut [DirEntry]) {
-	use walkdir::DirEntryExt;
-	dirs.sort_by(|a, b| {
-		let a_inode = a.ino();
-		let b_inode = b.ino();
-		a_inode.cmp(&b_inode)
-	});
-}
-
-#[cfg(not(target_os = "linux"))]
-fn optimize_file_order(_dirs: &mut [DirEntry]) {}
 
 /// Serialise the specified hashes to the specified output file.
 pub fn write_hashes(out_file: &Path, algo: Algorithm, mut hashes: BTreeMap<String, String>) -> i32 {
