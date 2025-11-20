@@ -66,7 +66,7 @@ pub enum Mode {
 		#[arg(default_value = ".")]
 		path: PathBuf,
 		/// Input filename. Default: `directory_name.hash`
-		#[arg(long)]
+		#[arg(short, long)]
 		file: Option<PathBuf>,
 	},
 }
