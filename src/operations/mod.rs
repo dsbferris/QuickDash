@@ -30,12 +30,11 @@ use std::{
 	collections::BTreeMap,
 	fs::File,
 	io::{BufRead, BufReader, Write},
-	path::Path,
+	sync::LazyLock,
 	time::Duration,
 };
 
 use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
-use once_cell::sync::Lazy;
 use rayon::{
 	ThreadPoolBuilder,
 	iter::{IntoParallelRefIterator, ParallelIterator},
@@ -151,16 +150,36 @@ pub fn read_hashes(file: &Path) -> Result<BTreeMap<String, String>, Error> {
 	Ok(hashes)
 }
 
+
+/// Regex matching lines where the hash appears first, followed by the
+/// filename. This targets the canonical output produced by
+/// `write_hashes()` which writes `HASH  FILENAME` (two-or-more spaces
+/// separating fields).
+///
+/// - Case-insensitive (`(?i)`).
+/// - Capture group 1: the hash (one or more hex digits or hyphens).
+/// - Capture group 2: the filename/path (non-greedy to the line end).
+/// - Example matches: `A1B2C3  path/to/file.txt` or `-----  /ignored`.
+static LINE_RGX1: LazyLock<Regex> = LazyLock::new(|| 
+	Regex::new(r"(?i)^([[:xdigit:]-]+)\s{2,}(.+?)$").unwrap());
+
+/// Regex matching lines where the filename appears first and the hash
+/// is at the end of the line. This accepts optional tabs before the
+/// separating whitespace and requires at least one whitespace before the
+/// hash (i.e. `FILENAME<TAB*> <SPACE+>HASH`).
+///
+/// - Case-insensitive (`(?i)`).
+/// - Capture group 1: the filename/path.
+/// - Capture group 2: the hash (one or more hex digits or hyphens).
+/// - Example matches: `path/to/file\tA1B2C3` or `some name   -----`.
+static LINE_RGX2: LazyLock<Regex> = LazyLock::new(|| 
+	Regex::new(r"(?i)^(.+?)\t{0,}\s{1,}([[:xdigit:]-]+)$").unwrap());
+
+
 fn try_contains(line: &str, hashes: &mut BTreeMap<String, String>) -> Result<(), Error> {
 	if line.is_empty() {
 		return Err(Error::HashesFileParsingFailure);
 	}
-
-	static LINE_RGX1: Lazy<Regex> =
-		Lazy::new(|| Regex::new(r"(?i)^([[:xdigit:]-]+)\s{2,}(.+?)$").unwrap());
-
-	static LINE_RGX2: Lazy<Regex> =
-		Lazy::new(|| Regex::new(r"(?i)^(.+?)\t{0,}\s{1,}([[:xdigit:]-]+)$").unwrap());
 
 	if let Some(captures) = LINE_RGX1.captures(line) {
 		hashes.insert(captures[2].to_string(), captures[1].to_uppercase());
