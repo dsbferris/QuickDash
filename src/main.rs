@@ -35,7 +35,7 @@ fn actual_main() -> i32 {
 	match opts.command {
 		Mode::Create { path, file, force } => {
 			let file = file.unwrap_or_else(|| default_file(&path));
-			match (force, Path::new(&file).exists()) {
+			match (force, file.exists()) {
 				(true, _) | (_, false) => {
 					// if this fails, it probably didn't exist
 					let _ = remove_file(&file);
