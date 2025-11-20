@@ -142,9 +142,21 @@ pub fn write_hashes(out_file: &Path, algo: Algorithm, mut hashes: BTreeMap<Strin
 pub fn read_hashes(file: &Path) -> Result<BTreeMap<String, String>, Error> {
 	let mut hashes = BTreeMap::new();
 
-	let in_file = BufReader::new(File::open(&file).unwrap());
-	for line in in_file.lines().map(Result::unwrap) {
-		try_contains(&line, &mut hashes)?;
+	let reader = BufReader::new(File::open(&file).unwrap());
+	for line in reader.lines() {
+		match line {
+			Ok(line) => {
+				if line.is_empty() {
+					continue;
+				}
+				// Skip comment lines
+				if line.trim_start().starts_with(";"){
+					continue;
+				}
+				try_contains(&line, &mut hashes)?;
+			}
+			Err(err) => return Err(Error::HashesFileParsingFailure),
+		}
 	}
 
 	Ok(hashes)
@@ -177,16 +189,16 @@ static LINE_RGX2: LazyLock<Regex> = LazyLock::new(||
 
 
 fn try_contains(line: &str, hashes: &mut BTreeMap<String, String>) -> Result<(), Error> {
-	if line.is_empty() {
-		return Err(Error::HashesFileParsingFailure);
-	}
-
 	if let Some(captures) = LINE_RGX1.captures(line) {
-		hashes.insert(captures[2].to_string(), captures[1].to_uppercase());
+		let file = captures[2].to_string();
+		let hash = captures[1].to_uppercase();
+		hashes.insert(file, hash);
 		return Ok(());
 	}
 	if let Some(captures) = LINE_RGX2.captures(line) {
-		hashes.insert(captures[1].to_string(), captures[2].to_uppercase());
+		let file = captures[1].to_string();
+		let hash = captures[2].to_uppercase();
+		hashes.insert(file, hash);
 		return Ok(());
 	}
 	Err(Error::HashesFileParsingFailure)
