@@ -21,7 +21,7 @@ use std::{
 };
 
 use clap::Parser;
-use quickdash::{Commands, Mode};
+use quickdash::{Algorithm, Commands, Mode};
 
 
 fn main() {
@@ -68,6 +68,38 @@ fn actual_main() -> i32 {
 			let file = file.unwrap_or_else(|| default_file(&path));
 			match quickdash::operations::read_hashes(&file) {
 				Ok(loaded_hashes) => {
+					let compare_result =
+						quickdash::operations::compare_hashes(&file, hashes, loaded_hashes);
+					quickdash::operations::write_hash_comparison_results(
+						&mut stdout(),
+						&mut stderr(),
+						compare_result,
+					)
+				}
+				Err(rval) => rval,
+			}
+			.exit_value()
+		}
+		Mode::Check { path, file } => {
+			// Read hash file
+			// Check for files mentioned in hashfile
+			// Hash all existing files mentioned in hashfile
+			let file = file.unwrap_or_else(|| default_file(&path));
+			assert!(file.exists());
+			match quickdash::operations::read_hashes(&file) {
+				Ok(loaded_hashes) => {
+					let mut algo = opts.algorithm;
+					if opts.algorithm == Algorithm::UNSPECIFIED {
+						// try to autodetect hash algorithm from hashes read, ignore the "------..."
+						let example_hash = loaded_hashes.values()
+							.filter(|s| !s.starts_with("----")).next().unwrap();
+						algo = Algorithm::autodetect_from_hash(&example_hash);
+					}
+
+					let files: Vec<&String> = loaded_hashes.keys().clone().collect();
+
+					let hashes = quickdash::operations::create_hashes_for_files(&path, files, algo, opts.jobs);
+
 					let compare_result =
 						quickdash::operations::compare_hashes(&file, hashes, loaded_hashes);
 					quickdash::operations::write_hash_comparison_results(

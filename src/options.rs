@@ -69,4 +69,13 @@ pub enum Mode {
 		#[arg(short, long)]
 		file: Option<PathBuf>,
 	},
+	/// Check a hash file
+	Check {
+		/// Directory to verify. Default: current directory
+		#[arg(default_value = ".")]
+		path: PathBuf,
+		/// Input filename. Default: `directory_name.hash`
+		#[arg(short, long)]
+		file: Option<PathBuf>,
+	},
 }

@@ -30,6 +30,7 @@ use std::{
 	collections::BTreeMap,
 	fs::File,
 	io::{BufRead, BufReader, Write},
+	path::{Path, PathBuf},
 	sync::LazyLock,
 	time::Duration,
 };
@@ -117,6 +118,53 @@ pub fn create_hashes(
 		.collect();
 	hashes.append(&mut result);
 	hashes
+}
+
+
+/// Create hash mappings for given files using a given algorithm
+pub fn create_hashes_for_files(
+	path: &Path,
+	files: Vec<&String>,
+	algo: Algorithm,
+	jobs: usize,
+) -> BTreeMap<String, String> {
+
+	let pb_style = ProgressStyle::default_bar()
+		.template("{prefix:.bold.dim} {spinner} {wide_bar} {pos:>7}/{len:7} ETA: {eta} - {msg}")
+		.unwrap()
+		.tick_strings(&SPINNER_STRINGS);
+	let pb = ProgressBar::new_spinner();
+	pb.set_style(pb_style);
+	pb.enable_steady_tick(Duration::from_millis(80));
+	pb.set_message("Finding files to hash...");
+
+	ThreadPoolBuilder::new()
+		.num_threads(jobs)
+		.build_global()
+		.unwrap();
+
+	let files: Vec<PathBuf> = files.into_iter().filter_map(|f| -> Option<PathBuf> {
+		let f = path.join(f.replace("*", ""));
+		if f.is_file(){
+    		Some(f)
+		} else {
+			None
+		}
+	}).collect();
+
+	pb.reset();
+	pb.set_length(files.len() as u64);
+	pb.set_message("Hashing files...");
+
+	files
+		.par_iter()
+		.progress_with(pb)
+		.map(|e| {
+			let value = hash_file(algo, e.as_path());
+			let filename = relative_name(path, e.as_path());
+			(filename, value)
+		})
+		.collect()
 }
 
 
