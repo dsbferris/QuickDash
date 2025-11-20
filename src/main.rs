@@ -102,15 +102,16 @@ fn actual_main() -> i32 {
 
 					let compare_result =
 						quickdash::operations::compare_hashes(&file, hashes, loaded_hashes);
-					quickdash::operations::write_hash_comparison_results(
+					let err = quickdash::operations::write_hash_comparison_results(
 						&mut stdout(),
 						&mut stderr(),
 						compare_result,
-					)
+					);
+					println!("{:#?}", err);
+					err.exit_value()
 				}
-				Err(rval) => rval,
+				Err(rval) => rval.exit_value(),
 			}
-			.exit_value()
 		}
 	}
 }
