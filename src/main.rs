@@ -88,8 +88,12 @@ fn actual_main() -> i32 {
 			// Read hash file
 			// Check for files mentioned in hashfile
 			// Hash all existing files mentioned in hashfile
-			let file = file.unwrap_or_else(|| default_file(&path));
-			assert!(file.exists());
+			let mut file = file.unwrap_or_else(|| default_file(&path));
+			if file.is_relative(){
+				let cwd = std::env::current_dir().unwrap();
+				file = cwd.join(file);
+			}
+			assert!(file.exists(), "file did not exist {:?}", file);
 			match quickdash::operations::read_hashes(&file) {
 				Ok(loaded_hashes) => {
 					let mut algo = opts.algorithm;
