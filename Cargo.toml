@@ -29,6 +29,10 @@ walkdir     = "2.3.2"
 whirlpool   = "0.10.1"
 xxhash-rust = { version = "0.8.4", features = ["xxh3", "xxh32", "xxh64"] }
 
+[profile.dev]
+debug = true
+opt-level = 0
+
 [profile.release]
 codegen-units = 1
 debug         = false
