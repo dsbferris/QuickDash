@@ -209,15 +209,15 @@ pub fn read_hashes(file: &Path) -> Result<BTreeMap<PathBuf, String>, Error> {
 
 /// Regex matching lines where the hash appears first, followed by the
 /// filename. This targets the canonical output produced by
-/// `write_hashes()` which writes `HASH  FILENAME` (two-or-more spaces
+/// `write_hashes()` which writes `HASH FILENAME` (one or more spaces
 /// separating fields).
 ///
 /// - Case-insensitive (`(?i)`).
 /// - Capture group 1: the hash (one or more hex digits or hyphens).
 /// - Capture group 2: the filename/path (non-greedy to the line end).
-/// - Example matches: `A1B2C3  path/to/file.txt` or `-----  /ignored`.
+/// - Example matches: `A1B2C3 path/to/file.txt` or `-----  /ignored`.
 static LINE_RGX1: LazyLock<Regex> = LazyLock::new(|| 
-	Regex::new(r"(?i)^([[:xdigit:]-]+)\s{2,}(.+?)$").unwrap());
+	Regex::new(r"(?i)^([[:xdigit:]-]+)\s+(.+?)$").unwrap());
 
 /// Regex matching lines where the filename appears first and the hash
 /// is at the end of the line. This accepts optional tabs before the
