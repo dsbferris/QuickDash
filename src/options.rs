@@ -39,9 +39,6 @@ pub struct Commands {
 	/// Files/directories to ignore. Default: none
 	#[arg(short, long)]
 	pub ignored_files: Vec<String>,
-	/// # of threads used for hashing.
-	#[arg(short, long, default_value_t = 0)]
-	pub jobs: usize,
 	/// Whether to verify or create hashes. Default: Verify
 	#[command(subcommand)]
 	pub command: Mode,

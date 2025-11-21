@@ -46,7 +46,6 @@ fn actual_main() -> i32 {
 						opts.algorithm,
 						opts.depth,
 						opts.follow_symlinks,
-						opts.jobs,
 					);
 					quickdash::operations::write_hashes(&file, hashes)
 				}
@@ -67,7 +66,6 @@ fn actual_main() -> i32 {
 				opts.algorithm,
 				opts.depth,
 				opts.follow_symlinks,
-				opts.jobs,
 			);
 			let file = file.unwrap_or_else(|| default_file(&path));
 			match quickdash::operations::read_hashes(&file) {
@@ -109,7 +107,7 @@ fn actual_main() -> i32 {
 						.keys()
 						.map(|f|f.to_owned())
 						.collect();
-					let hashes: BTreeMap<PathBuf, String> = quickdash::operations::create_hashes_for_files(&path, files, algo, opts.jobs);
+					let hashes: BTreeMap<PathBuf, String> = quickdash::operations::create_hashes_for_files(&path, files, algo);
 
 					let compare_result =
 						quickdash::operations::compare_hashes(hashes, loaded_hashes);

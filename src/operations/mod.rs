@@ -35,11 +35,7 @@ use std::{
 	time::Duration,
 };
 
-use indicatif::{ParallelProgressIterator, ProgressBar, ProgressIterator, ProgressStyle};
-use rayon::{
-	ThreadPoolBuilder,
-	iter::{IntoParallelRefIterator, ParallelIterator},
-};
+use indicatif::{ProgressBar, ProgressIterator, ProgressStyle};
 use regex::Regex;
 use tabwriter::TabWriter;
 use walkdir::{DirEntry, WalkDir};
@@ -60,7 +56,6 @@ pub fn create_hashes(
 	algo: Algorithm,
 	depth: Option<usize>,
 	follow_symlinks: bool,
-	jobs: usize,
 ) -> BTreeMap<PathBuf, String> {
 	let mut walkdir = WalkDir::new(path).follow_links(follow_symlinks);
 	if let Some(depth) = depth {
@@ -74,11 +69,6 @@ pub fn create_hashes(
 
 	let pb = ProgressBar::new_spinner();
 	pb.set_style(pb_style);
-
-	ThreadPoolBuilder::new()
-		.num_threads(jobs)
-		.build_global()
-		.unwrap();
 
 	pb.enable_steady_tick(Duration::from_millis(80));
 	pb.set_message("Finding files to hash...");
@@ -106,7 +96,7 @@ pub fn create_hashes(
 	pb.set_message("Hashing files...");
 
 	let hashes: BTreeMap<PathBuf, String> = files
-		.par_iter()
+		.into_iter()
 		.progress_with(pb)
 		.map(|e| {
 			let value = hash_file(algo, e.path());
@@ -123,7 +113,6 @@ pub fn create_hashes_for_files(
 	path: &Path,
 	files: Vec<PathBuf>,
 	algo: Algorithm,
-	jobs: usize,
 ) -> BTreeMap<PathBuf, String> {
 
 	let pb_style = ProgressStyle::default_bar()
@@ -134,11 +123,6 @@ pub fn create_hashes_for_files(
 	pb.set_style(pb_style);
 	pb.enable_steady_tick(Duration::from_millis(80));
 	pb.set_message("Finding files to hash...");
-
-	ThreadPoolBuilder::new()
-		.num_threads(jobs)
-		.build_global()
-		.unwrap();
 
 	let files: Vec<PathBuf> = files
 		.into_iter()

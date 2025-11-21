@@ -17,9 +17,7 @@ clap        = { version = "4.4.10", features = ["derive"] }
 crc32fast   = "1.3.2"
 indicatif   = { version = "0.17.11", features = ["rayon"] }
 md-5        = "0.10.1"
-num_cpus    = "1.13.1"
 once_cell   = "1.10.0"
-rayon       = "1.5.1"
 regex       = "1.5.5"
 sha-1       = "0.10.0"
 sha2        = "0.10.2"
@@ -44,6 +42,7 @@ doc  = false
 name = "quickdash"
 path = "src/main.rs"
 test = false
+
 
 [lib]
 name = "quickdash"
