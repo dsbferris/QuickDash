@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-use std::io::Write;
+use std::{io::Write, path::PathBuf, str::FromStr};
 
 use super::{CompareError, CompareFileResult, CompareResult};
 use crate::{Error, utilities::mul_str};
@@ -112,11 +112,12 @@ pub fn write_hash_comparison_results<Wo: Write, We: Write>(
 	result
 }
 
-fn write_compare_result<W: Write>(out: &mut W, pre: &str, fname: &str) {
+fn write_compare_result<W: Write>(out: &mut W, pre: &str, fname: &PathBuf) {
 	write_result(out, pre, fname, 2, true)
 }
 
-fn write_result<W: Write>(out: &mut W, pre: &str, fname: &str, fname_indent: usize, quote: bool) {
+fn write_result<W: Write>(out: &mut W, pre: &str, fname: &PathBuf, fname_indent: usize, quote: bool) {
+	let fname = fname.to_str().unwrap();
 	if pre.len() + quote as usize + fname.len() + quote as usize <= 80 {
 		let quote_s = if quote { "\"" } else { "" };
 		writeln!(out, "{}{2}{}{2}", pre, fname, quote_s).unwrap();
@@ -138,21 +139,22 @@ fn write_result<W: Write>(out: &mut W, pre: &str, fname: &str, fname_indent: usi
 	}
 }
 
-fn write_file_result_match<W: Write>(out: &mut W, fname: &str) {
-	if 15 + fname.len() <= 80 {
-		writeln!(out, "File \"{}\" matches", fname).unwrap();
+fn write_file_result_match<W: Write>(out: &mut W, fname: &PathBuf) {
+	if 15 + fname.to_str().unwrap().len() <= 80 {
+		writeln!(out, "File \"{}\" matches", fname.to_str().unwrap()).unwrap();
 	} else {
 		write_compare_result(out, "File matches: ", fname);
 	}
 }
 
-fn write_file_result_diff<W: Write>(out: &mut W, fname: &str, lhash: &str, chash: &str) {
-	if 21 + fname.len() <= 80 {
-		writeln!(out, "File \"{}\" doesn't match", fname).unwrap();
+fn write_file_result_diff<W: Write>(out: &mut W, fname: &PathBuf, lhash: &str, chash: &str) {
+	if 21 + fname.to_str().unwrap().len() <= 80 {
+		writeln!(out, "File \"{}\" doesn't match", fname.to_str().unwrap()).unwrap();
 	} else {
 		write_result(out, "File doesn't match: ", fname, 4, true);
 	}
 
-	write_result(out, "  Was: ", lhash, 4, false);
-	write_result(out, "  Is : ", chash, 4, false);
+	
+	write_result(out, "  Was: ", &PathBuf::from_str(lhash).unwrap(), 4, false);
+	write_result(out, "  Is : ", &PathBuf::from_str(chash).unwrap(), 4, false);
 }

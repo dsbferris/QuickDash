@@ -57,10 +57,7 @@ pub fn mul_str(what: &str, n: usize) -> String {
 /// 	"bin/quickdash".to_string()
 /// );
 /// ```
-pub fn relative_name(prefix: &Path, what: &Path) -> String {
+pub fn relative_name<'a>(prefix: &'a Path, what: &'a Path) -> &'a Path {
 	what.strip_prefix(prefix)
 		.unwrap()
-		.to_str()
-		.unwrap()
-		.replace('\\', "/")
 }

@@ -14,10 +14,7 @@
  */
 
 use std::{
-	fs::remove_file,
-	io::{stderr, stdout},
-	path::{Path, PathBuf},
-	process::exit,
+	collections::BTreeMap, fs::remove_file, io::{stderr, stdout}, path::{Path, PathBuf}, process::exit, str::FromStr
 };
 
 use clap::Parser;
@@ -39,16 +36,19 @@ fn actual_main() -> i32 {
 				(true, _) | (_, false) => {
 					// if this fails, it probably didn't exist
 					let _ = remove_file(&file);
-
-					let hashes = quickdash::operations::create_hashes(
+					let ignored_files: Vec<PathBuf> = opts.ignored_files
+						.into_iter()
+						.map(|f|PathBuf::from_str(&f).unwrap())
+						.collect();
+					let hashes: BTreeMap<PathBuf, String> = quickdash::operations::create_hashes(
 						&path,
-						opts.ignored_files,
+						ignored_files,
 						opts.algorithm,
 						opts.depth,
 						opts.follow_symlinks,
 						opts.jobs,
 					);
-					quickdash::operations::write_hashes(&file, opts.algorithm, hashes)
+					quickdash::operations::write_hashes(&file, hashes)
 				}
 				(false, true) => {
 					eprintln!("File already exists. Use --force to overwrite.");
@@ -57,9 +57,13 @@ fn actual_main() -> i32 {
 			}
 		}
 		Mode::Verify { path, file } => {
+			let ignored_files = opts.ignored_files
+				.into_iter()
+				.map(|f| PathBuf::from_str(&f).unwrap())
+				.collect();
 			let hashes = quickdash::operations::create_hashes(
 				&path,
-				opts.ignored_files,
+				ignored_files,
 				opts.algorithm,
 				opts.depth,
 				opts.follow_symlinks,
@@ -69,7 +73,7 @@ fn actual_main() -> i32 {
 			match quickdash::operations::read_hashes(&file) {
 				Ok(loaded_hashes) => {
 					let compare_result =
-						quickdash::operations::compare_hashes(&file, hashes, loaded_hashes);
+						quickdash::operations::compare_hashes(hashes, loaded_hashes);
 					quickdash::operations::write_hash_comparison_results(
 						&mut stdout(),
 						&mut stderr(),
@@ -92,16 +96,19 @@ fn actual_main() -> i32 {
 					if opts.algorithm == Algorithm::UNSPECIFIED {
 						// try to autodetect hash algorithm from hashes read, ignore the "------..."
 						let example_hash = loaded_hashes.values()
-							.filter(|s| !s.starts_with("----")).next().unwrap();
+							.filter(|s| !s.starts_with("----"))
+							.next().unwrap();
 						algo = Algorithm::autodetect_from_hash(&example_hash);
 					}
 
-					let files: Vec<&String> = loaded_hashes.keys().clone().collect();
-
-					let hashes = quickdash::operations::create_hashes_for_files(&path, files, algo, opts.jobs);
+					let files: Vec<PathBuf> = loaded_hashes
+						.keys()
+						.map(|f|f.to_owned())
+						.collect();
+					let hashes: BTreeMap<PathBuf, String> = quickdash::operations::create_hashes_for_files(&path, files, algo, opts.jobs);
 
 					let compare_result =
-						quickdash::operations::compare_hashes(&file, hashes, loaded_hashes);
+						quickdash::operations::compare_hashes(hashes, loaded_hashes);
 					let err = quickdash::operations::write_hash_comparison_results(
 						&mut stdout(),
 						&mut stderr(),

@@ -13,22 +13,21 @@
  * limitations under the License.
  */
 
-use std::{collections::BTreeMap, path::Path};
+use std::{collections::BTreeMap, path::{PathBuf}};
 
-use crate::utilities::{mul_str, vec_merge};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CompareResult {
-	FileAdded(String),
-	FileRemoved(String),
-	FileIgnored(String),
+	FileAdded(PathBuf),
+	FileRemoved(PathBuf),
+	FileIgnored(PathBuf),
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum CompareFileResult {
-	FileMatches(String),
+	FileMatches(PathBuf),
 	FileDiffers {
-		file: String,
+		file: PathBuf,
 		was_hash: String,
 		new_hash: String,
 	},
@@ -44,9 +43,8 @@ pub enum CompareError {
 
 /// Compare two provided hashes
 pub fn compare_hashes(
-	out_file: &Path,
-	mut current_hashes: BTreeMap<String, String>,
-	mut loaded_hashes: BTreeMap<String, String>,
+	mut current_hashes: BTreeMap<PathBuf, String>,
+	mut loaded_hashes: BTreeMap<PathBuf, String>,
 ) -> Result<(Vec<CompareResult>, Vec<CompareFileResult>), CompareError> {
 	let current_hashes_value_len = current_hashes.iter().next().unwrap().1.len();
 	let loaded_hashes_value_len = loaded_hashes.iter().next().unwrap().1.len();
@@ -56,24 +54,12 @@ pub fn compare_hashes(
 			current_len: current_hashes_value_len,
 		});
 	}
-	let placeholder_value = mul_str("-", current_hashes_value_len);
-	let mut file_compare_results = Vec::new();
+	let mut file_compare_results: Vec<CompareFileResult> = Vec::new();
 
-	let key = out_file.to_string_lossy().to_string();
-	current_hashes.remove(&key);
-	loaded_hashes.remove(&key);
-
-	let remove_results = process_ignores(
+	let remove_results: Vec<CompareResult> = process_ignores(
 		|key, _, other| !other.contains_key(key),
 		CompareResult::FileAdded,
 		CompareResult::FileRemoved,
-		&mut current_hashes,
-		&mut loaded_hashes,
-	);
-	let ignore_results = process_ignores(
-		|_, value, _| *value == placeholder_value,
-		CompareResult::FileIgnored,
-		CompareResult::FileIgnored,
 		&mut current_hashes,
 		&mut loaded_hashes,
 	);
@@ -97,7 +83,7 @@ pub fn compare_hashes(
 	}
 
 	Ok((
-		vec_merge(remove_results, ignore_results),
+		remove_results,
 		file_compare_results,
 	))
 }
@@ -106,13 +92,13 @@ fn process_ignores<F, Rc, Rl>(
 	f: F,
 	cres: Rc,
 	lres: Rl,
-	ch: &mut BTreeMap<String, String>,
-	lh: &mut BTreeMap<String, String>,
+	ch: &mut BTreeMap<PathBuf, String>,
+	lh: &mut BTreeMap<PathBuf, String>,
 ) -> Vec<CompareResult>
 where
-	F: Fn(&str, &str, &BTreeMap<String, String>) -> bool,
-	Rc: Fn(String) -> CompareResult,
-	Rl: Fn(String) -> CompareResult,
+	F: Fn(&PathBuf, &str, &BTreeMap<PathBuf, String>) -> bool,
+	Rc: Fn(PathBuf) -> CompareResult,
+	Rl: Fn(PathBuf) -> CompareResult,
 {
 	let mut results = Vec::new();
 	let mut keys_to_remove = Vec::new();
@@ -131,13 +117,13 @@ where
 fn process_ignores_iter<F, R>(
 	f: &F,
 	res: &R,
-	curr: &BTreeMap<String, String>,
-	other: &BTreeMap<String, String>,
-	keys_to_remove: &mut Vec<String>,
+	curr: &BTreeMap<PathBuf, String>,
+	other: &BTreeMap<PathBuf, String>,
+	keys_to_remove: &mut Vec<PathBuf>,
 	results: &mut Vec<CompareResult>,
 ) where
-	F: Fn(&str, &str, &BTreeMap<String, String>) -> bool,
-	R: Fn(String) -> CompareResult,
+	F: Fn(&PathBuf, &str, &BTreeMap<PathBuf, String>) -> bool,
+	R: Fn(PathBuf) -> CompareResult,
 {
 	for (key, value) in curr {
 		if f(key, value, other) {

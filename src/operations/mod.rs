@@ -35,7 +35,7 @@ use std::{
 	time::Duration,
 };
 
-use indicatif::{ParallelProgressIterator, ProgressBar, ProgressStyle};
+use indicatif::{ParallelProgressIterator, ProgressBar, ProgressIterator, ProgressStyle};
 use rayon::{
 	ThreadPoolBuilder,
 	iter::{IntoParallelRefIterator, ParallelIterator},
@@ -47,7 +47,7 @@ use walkdir::{DirEntry, WalkDir};
 pub use self::{compare::*, write::*};
 use crate::{
 	Algorithm, Error, hash_file,
-	utilities::{mul_str, relative_name},
+	utilities::relative_name,
 };
 
 static SPINNER_STRINGS: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -56,12 +56,12 @@ static SPINNER_STRINGS: [&str; 10] = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", 
 /// a given depth.
 pub fn create_hashes(
 	path: &Path,
-	ignored_files: Vec<String>,
+	ignored_files: Vec<PathBuf>,
 	algo: Algorithm,
 	depth: Option<usize>,
 	follow_symlinks: bool,
 	jobs: usize,
-) -> BTreeMap<String, String> {
+) -> BTreeMap<PathBuf, String> {
 	let mut walkdir = WalkDir::new(path).follow_links(follow_symlinks);
 	if let Some(depth) = depth {
 		walkdir = walkdir.max_depth(depth + 1);
@@ -80,17 +80,15 @@ pub fn create_hashes(
 		.build_global()
 		.unwrap();
 
-	let mut hashes = BTreeMap::new();
-
 	pb.enable_steady_tick(Duration::from_millis(80));
 	pb.set_message("Finding files to hash...");
 	let mut files: Vec<DirEntry> = walkdir
 		.into_iter()
 		.filter_entry(|e: &walkdir::DirEntry| {
 			let filename = relative_name(path, e.path());
-			match (ignored_files.contains(&filename), e.file_type().is_file()) {
+			match (ignored_files.iter().any(|f| f.as_path().eq(filename)), e.file_type().is_file()) {
 				(true, true) => {
-					hashes.insert(mul_str("-", algo.hexlen()), filename);
+					// hashes.insert(mul_str("-", algo.hexlen()), filename);
 					false
 				}
 				(true, false) => false,
@@ -101,22 +99,21 @@ pub fn create_hashes(
 		.filter(|e| e.file_type().is_file())
 		.collect();
 
- 	optimize_file_order::optimize_file_order(&mut files);
+	optimize_file_order::optimize_file_order(&mut files);
 
 	pb.reset();
 	pb.set_length(files.len() as u64);
 	pb.set_message("Hashing files...");
 
-	let mut result: BTreeMap<String, String> = files
+	let hashes: BTreeMap<PathBuf, String> = files
 		.par_iter()
 		.progress_with(pb)
 		.map(|e| {
 			let value = hash_file(algo, e.path());
 			let filename = relative_name(path, e.path());
-			(filename, value)
+			(filename.to_owned(), value)
 		})
 		.collect();
-	hashes.append(&mut result);
 	hashes
 }
 
@@ -124,10 +121,10 @@ pub fn create_hashes(
 /// Create hash mappings for given files using a given algorithm
 pub fn create_hashes_for_files(
 	path: &Path,
-	files: Vec<&String>,
+	files: Vec<PathBuf>,
 	algo: Algorithm,
 	jobs: usize,
-) -> BTreeMap<String, String> {
+) -> BTreeMap<PathBuf, String> {
 
 	let pb_style = ProgressStyle::default_bar()
 		.template("{prefix:.bold.dim} {spinner} {wide_bar} {pos:>7}/{len:7} ETA: {eta} - {msg}")
@@ -143,42 +140,41 @@ pub fn create_hashes_for_files(
 		.build_global()
 		.unwrap();
 
-	let files: Vec<PathBuf> = files.into_iter().filter_map(|f| -> Option<PathBuf> {
-		let f = path.join(f.replace("*", ""));
-		if f.is_file(){
-    		Some(f)
-		} else {
-			None
-		}
-	}).collect();
+	let files: Vec<PathBuf> = files
+		.into_iter()
+		.filter_map(|f| {
+			let p = if f.is_relative() { path.join(f) } else { f };
+			if p.is_file() {Some(p)} else {None}
+		})
+		.collect();
 
 	pb.reset();
 	pb.set_length(files.len() as u64);
 	pb.set_message("Hashing files...");
 
 	files
-		.par_iter()
+		.into_iter()
 		.progress_with(pb)
 		.map(|e| {
 			let value = hash_file(algo, e.as_path());
 			let filename = relative_name(path, e.as_path());
-			(filename, value)
+			(filename.to_owned(), value)
 		})
-		.collect()
+		.collect::<BTreeMap<PathBuf, String>>()
 }
 
 
 /// Serialise the specified hashes to the specified output file.
-pub fn write_hashes(out_file: &Path, algo: Algorithm, mut hashes: BTreeMap<String, String>) -> i32 {
+pub fn write_hashes(out_file: &Path, hashes: BTreeMap<PathBuf, String>) -> i32 {
 	let file = File::create(&out_file).unwrap();
 	let mut out = TabWriter::new(file);
 
-	hashes.insert(
-		out_file.to_string_lossy().to_string(),
-		mul_str("-", algo.hexlen()),
-	);
+	// hashes.insert(
+	// 	out_file.to_string_lossy().to_string(),
+	// 	mul_str("-", algo.hexlen()),
+	// );
 	for (fname, hash) in hashes {
-		writeln!(&mut out, "{}  {}", hash, fname).unwrap();
+		writeln!(&mut out, "{}  {}", hash, fname.to_string_lossy()).unwrap();
 	}
 
 	out.flush().expect("Failed to flush output file");
@@ -187,7 +183,7 @@ pub fn write_hashes(out_file: &Path, algo: Algorithm, mut hashes: BTreeMap<Strin
 
 /// Read uppercased hashes with `write_hashes()` from the specified path or fail
 /// with line numbers not matching pattern.
-pub fn read_hashes(file: &Path) -> Result<BTreeMap<String, String>, Error> {
+pub fn read_hashes(file: &Path) -> Result<BTreeMap<PathBuf, String>, Error> {
 	let mut hashes = BTreeMap::new();
 
 	let reader = BufReader::new(File::open(&file).unwrap());
@@ -236,18 +232,34 @@ static LINE_RGX2: LazyLock<Regex> = LazyLock::new(||
 	Regex::new(r"(?i)^(.+?)\t{0,}\s{1,}([[:xdigit:]-]+)$").unwrap());
 
 
-fn try_contains(line: &str, hashes: &mut BTreeMap<String, String>) -> Result<(), Error> {
+fn try_contains(line: &str, hashes: &mut BTreeMap<PathBuf, String>) -> Result<(), Error> {
 	if let Some(captures) = LINE_RGX1.captures(line) {
-		let file = captures[2].to_string();
+		let file = filepath_parser(&captures[2]);
 		let hash = captures[1].to_uppercase();
 		hashes.insert(file, hash);
 		return Ok(());
 	}
 	if let Some(captures) = LINE_RGX2.captures(line) {
-		let file = captures[1].to_string();
+		let file = filepath_parser(&captures[1]);
 		let hash = captures[2].to_uppercase();
 		hashes.insert(file, hash);
 		return Ok(());
 	}
 	Err(Error::HashesFileParsingFailure(line.to_owned()))
+}
+
+fn filepath_parser(raw: &str) -> PathBuf {
+	// Basic cleanup
+	let mut s = raw.trim().replace('*', "");
+
+	// On non-Windows platforms convert a lone backslash separator
+	// (e.g. coming from a Windows-style list) to forward slashes so
+	// `Path::new` parses components predictably. This avoids turning
+	// a Windows-style path into a single filename with backslashes.
+	if !cfg!(windows) && s.contains('\\') && !s.contains('/') {
+		s = s.replace('\\', "/");
+	}
+
+	// Build a PathBuf from the (possibly normalized) string. 
+	Path::new(&s).to_owned()
 }
